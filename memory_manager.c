@@ -20,11 +20,13 @@ void mem_init(size_t size) {
     pthread_mutex_lock(&mem_mutex);
     if (memory_pool) {
         printf("Memory manager already initialized!\n");
+        pthread_mutex_unlock(&mem_mutex);
         return;
     }
     memory_pool = malloc(size);
     if (!memory_pool) {
         printf("Failed to allocate memory pool!\n");
+        pthread_mutex_unlock(&mem_mutex);
         return;
     }
 
@@ -32,6 +34,7 @@ void mem_init(size_t size) {
     if (!block_list) {
         printf("Failed to allocate metadata!\n");
         free(memory_pool);
+        pthread_mutex_unlock(&mem_mutex);
         return;
     }
     
@@ -50,10 +53,12 @@ void* mem_alloc(size_t size) {
         Block* curr = block_list;
         while (curr) {
             if (curr->free) {
+                pthread_mutex_unlock(&mem_mutex);
                 return curr->pointer_memory;
             }
             curr = curr->next;
         }
+        pthread_mutex_unlock(&mem_mutex);
         return NULL; // No free block found
     }
 
@@ -65,6 +70,7 @@ void* mem_alloc(size_t size) {
                 Block* new_block = malloc(sizeof(Block));
                 if (!new_block) {
                     printf("Failed to allocate metadata!\n");
+                    pthread_mutex_unlock(&mem_mutex);
                     return NULL;
                 }
                 
@@ -90,8 +96,10 @@ void* mem_alloc(size_t size) {
 
 void mem_free(void* block) {
     pthread_mutex_lock(&mem_mutex);
-    if (!block) return;
-
+    if (!block) {
+        pthread_mutex_unlock(&mem_mutex);
+        return;
+    }
     Block* curr = block_list;
     Block* prev = NULL;
 
@@ -127,7 +135,11 @@ void mem_free(void* block) {
 }
 
 void* mem_resize(void* block, size_t size) {
-    if (!block || size == 0) return NULL;
+    pthread_mutex_lock(&mem_mutex);
+    if (!block || size == 0) {
+        pthread_mutex_unlock(&mem_mutex);
+        return NULL;
+    }
 
     Block* curr = block_list;
 
@@ -144,7 +156,10 @@ void* mem_resize(void* block, size_t size) {
     if (curr->size > size) {
         printf("Shrinking block.\n");
         Block* new_block = malloc(sizeof(Block));
-        if (!new_block) return NULL;
+        if (!new_block) {
+            pthread_mutex_unlock(&mem_mutex);
+            return NULL;
+        }
         
         new_block->size = size;
         new_block->pointer_memory = curr->pointer_memory + curr->size - size;
@@ -153,6 +168,7 @@ void* mem_resize(void* block, size_t size) {
         
         curr->size = curr->size - size;
         curr->next = new_block;
+        pthread_mutex_unlock(&mem_mutex);
         return curr->pointer_memory;
     }
 
@@ -164,8 +180,10 @@ void* mem_resize(void* block, size_t size) {
         curr->size = size;
         next_block->size = next_block->size + curr->size - size;
         next_block->pointer_memory = next_block->pointer_memory + next_block->size - curr->size;
+        pthread_mutex_unlock(&mem_mutex);
         return curr->pointer_memory;
     }
+    pthread_mutex_unlock(&mem_mutex);
     // Resize to the same size
     return curr->pointer_memory;
 }
