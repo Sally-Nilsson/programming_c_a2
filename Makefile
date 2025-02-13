@@ -3,6 +3,8 @@ CC = gcc
 CFLAGS = -Wall -fPIC
 LIB_NAME = libmemory_manager.so
 
+LIBS = -lm -pthread
+
 # Source and Object Files
 SRC = memory_manager.c
 OBJ = $(SRC:.c=.o)
@@ -31,11 +33,11 @@ list: linked_list.o
 
 # Test target to run the memory manager test program
 test_mmanager: $(LIB_NAME)
-	$(CC) $(CFLAGS) -o test_memory_manager test_memory_manager.c -L. -lmemory_manager -lm
+	$(CC) $(CFLAGS) -o test_memory_manager test_memory_manager.c -L. -lmemory_manager $(LIBS)
 
 # Test target to run the linked list test program
 test_list: $(LIB_NAME) linked_list.o
-	$(CC) $(CFLAGS) -o test_linked_list linked_list.c test_linked_list.c -L. -lmemory_manager -lm
+	$(CC) $(CFLAGS) -o test_linked_list linked_list.c test_linked_list.c -L. -lmemory_manager $(LIBS)
 
 #run tests
 run_tests:n run_test_mmanager run_test_list
